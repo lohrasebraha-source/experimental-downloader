@@ -34,6 +34,21 @@ jobs:
           persist-credentials: true
           fetch-depth: 0
 
+      - name: Prepare videos branch
+        run: |
+          git fetch origin
+
+          if git ls-remote --exit-code --heads origin videos; then
+            git checkout videos
+            git pull origin videos
+          else
+            git checkout --orphan videos
+            git rm -rf . || true
+            mkdir -p videos
+            git commit --allow-empty -m "[bot] Initialize videos branch"
+            git push origin videos
+          fi
+
       - name: Setup FFmpeg
         run: |
           wget https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
