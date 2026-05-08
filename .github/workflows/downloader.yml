@@ -120,8 +120,9 @@ jobs:
           echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
 
           # zip
-          7z a -v45m "${FILE_NO_EXTENSION}.zip" "$FILE"
+          zip -s 45m "${FILE_NO_EXTENSION}.zip" "$FILE"
           rm "$FILE"
+          ls -la
           
           # stop WARP
           docker stop warp || true
