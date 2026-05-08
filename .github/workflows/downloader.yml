@@ -1,0 +1,156 @@
+name: Youtube Downloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      youtube_url:
+        description: '🔗 YouTube video URL(s)'
+        required: true
+        type: string
+      quality:
+        description: '🎬 Video quality'
+        required: true
+        default: 'best'
+        type: choice
+        options:
+          - best
+          - 2160
+          - 1440
+          - 1080
+          - 720
+          - 480
+          - audio
+
+jobs:
+  download-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Setup FFmpeg
+        run: |
+          wget https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          tar -xf ffmpeg-master-latest-linux64-gpl.tar.xz
+          sudo mv ffmpeg-master-latest-linux64-gpl/bin/ffmpeg /usr/local/bin/
+          sudo mv ffmpeg-master-latest-linux64-gpl/bin/ffprobe /usr/local/bin/
+          ffmpeg -version
+
+      - name: Setup yt-dlp & WARP
+        run: |
+          
+          sudo apt-get install -y python3-pip curl p7zip-full
+          
+          # install deno
+          curl -fsSL https://deno.land/install.sh | sh
+          export DENO_INSTALL="$HOME/.deno"
+          export PATH="$DENO_INSTALL/bin:$PATH"
+          echo "$DENO_INSTALL/bin" >> $GITHUB_PATH
+          deno --version
+          
+          # install yt-dlp
+          pip install yt-dlp
+
+          # start WARP (thanks to https://avasam.ir ❤️‍🔥)
+          docker network create warp-net || true
+          docker run -d \
+            --name warp \
+            --restart=always \
+            --network warp-net \
+            -p 1080:1080 \
+            --cap-add NET_ADMIN \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+            --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+            -v warp-data:/var/lib/cloudflare-warp \
+            caomingjun/warp
+
+          # Waiting for WARP to initialize (15 seconds)...
+          sleep 15
+
+          # Checking WARP status...
+          for i in {1..5}; do
+            RESULT=$(curl -s --max-time 5 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace 2>/dev/null || echo "failed")
+            if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
+              echo "WARP is active!"
+              echo "$RESULT"
+              break
+            else
+              echo "Attempt $i/5 - WARP not ready yet, waiting..."
+              sleep 5
+            fi
+          done
+
+          FINAL=$(curl -s --max-time 10 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace 2>/dev/null || echo "failed")
+          if echo "$FINAL" | grep -qE "warp=(on|plus)"; then
+            echo "WARP proxy is ready!"
+          else
+            echo "WARP might not be fully active, but continuing anyway..."
+            echo "Response: $FINAL"
+          fi
+          
+      - name: Download videos
+        id: download
+        run: |
+          # parse quality input
+          QUALITY="${{ inputs.quality }}"
+          
+          if [ "$QUALITY" = "audio" ]; then
+            FORMAT_OPTS="-f bestaudio --extract-audio --audio-format mp3"
+          elif [ "$QUALITY" = "best" ]; then
+            FORMAT_OPTS="-f bestvideo+bestaudio/best --merge-output-format mp4"
+          else
+            FORMAT_OPTS="-f bestvideo[height<=${QUALITY}]+bestaudio/best[height<=${QUALITY}] --merge-output-format mp4"
+          fi
+          
+          # download using yt-dlp
+          mkdir -p videos
+          cd videos
+          yt-dlp --remote-components ejs:github --proxy "socks5://127.0.0.1:1080" --js-runtimes deno $FORMAT_OPTS "${{ inputs.youtube_url }}"
+
+          # find name
+          FILE=$(ls -1 | head -n 1)
+          FILE_NO_EXTENSION="${FILE%.*}"
+          echo "FILE=$FILE" >> $GITHUB_ENV
+          echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
+
+          # zip
+          7z a -v45m "${FILE_NO_EXTENSION}.zip" "$FILE"
+          rm "$FILE"
+          
+          # stop WARP
+          docker stop warp || true
+          docker rm warp || true
+
+      - name: Generate README with Download Links
+        run: |
+          rm -f README.md
+          
+          echo "# 📥 Download Links" > README.md
+          echo "Generated on: $(date)" >> README.md
+          echo "" >> README.md
+          
+          # Loop through all files in the videos folder
+          for file in videos/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              # URL Encode spaces for the markdown link
+              encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
+              # Construct the raw link
+              url="https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/videos/$encoded_filename"
+              echo "- [Download $filename]($url)" >> README.md
+            fi
+          done
+          
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add *
+          git commit -m "[bot] Add video ${{ env.FILE_NO_EXTENSION }}"
+          git push
