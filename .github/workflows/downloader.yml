@@ -36,6 +36,8 @@ jobs:
 
       - name: Prepare videos branch
         run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           git fetch origin
 
           if git ls-remote --exit-code --heads origin videos; then
@@ -59,7 +61,6 @@ jobs:
 
       - name: Setup yt-dlp & WARP
         run: |
-          
           sudo apt-get install -y python3-pip curl
           
           # install deno
@@ -158,15 +159,13 @@ jobs:
               # URL Encode spaces for the markdown link
               encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
               # Construct the raw link
-              url="https://github.com/${{ github.repository }}/raw/${{ github.ref_name }}/videos/$encoded_filename"
+              url="https://github.com/${{ github.repository }}/raw/videos/videos/$encoded_filename"
               echo "- [Download $filename]($url)" >> README.md
             fi
           done
           
       - name: Commit
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
           git add README.md videos
           git commit -m "[bot] Add video ${{ env.FILE_NO_EXTENSION }}"
           git push
