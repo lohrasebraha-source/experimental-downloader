@@ -45,7 +45,7 @@ jobs:
       - name: Setup yt-dlp & WARP
         run: |
           
-          sudo apt-get install -y python3-pip curl p7zip-full
+          sudo apt-get install -y python3-pip curl
           
           # install deno
           curl -fsSL https://deno.land/install.sh | sh
