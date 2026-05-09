@@ -49,10 +49,12 @@ jobs:
           # find name
           FILE=$(ls -1 | head -n 1)
           FILE_NO_EXTENSION="${FILE%.*}"
-          echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
+          SAFE_NAME=$(echo "$FILE_NO_EXTENSION" | tr ' ' '_' | tr -cd '[:alnum:]_-.')
+          # echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
+          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
           mkdir -p ../wget
-          zip -s 45m "../wget/${FILE_NO_EXTENSION}.zip" "$FILE"
+          zip -s 45m "../wget/${SAFE_NAME}.zip" "$FILE"
           
       - name: Generate README with Download Links
         run: |
@@ -77,5 +79,5 @@ jobs:
       - name: Commit
         run: |
           git add README.md wget
-          git commit -m "[bot] Add wget download ${{ env.FILE_NO_EXTENSION }}"
+          git commit -m "[bot] Add wget download ${{ env.SAFE_NAME }}"
           git push
