@@ -26,21 +26,21 @@ jobs:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Prepare books branch
+      - name: Prepare web branch
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git fetch origin
 
-          if git ls-remote --exit-code --heads origin books; then
-            git checkout books
-            git pull origin books
+          if git ls-remote --exit-code --heads origin web; then
+            git checkout web
+            git pull origin web
           else
-            git checkout --orphan books
+            git checkout --orphan web
             git rm -rf . || true
-            mkdir -p books
-            git commit --allow-empty -m "[bot] Initialize books branch"
-            git push --set-upstream origin books
+            mkdir -p web
+            git commit --allow-empty -m "[bot] Initialize web branch"
+            git push --set-upstream origin web
           fi
 
       - name: Setup ArchiveBox Docker
@@ -61,8 +61,8 @@ jobs:
           docker run --rm -v $PWD/archive_data:/data archivebox/archivebox add "${{ inputs.website_url }}"
           
           # Move to the branch folder
-          mkdir -p books
-          cd books
+          mkdir -p web
+          cd web
           
           OUTPUT_NAME="${{ inputs.output_name }}"
           
@@ -84,20 +84,20 @@ jobs:
           echo "Source URL: ${{ inputs.website_url }}" >> README.md
           echo "" >> README.md
           
-          # Loop through all files in the books folder
-          for file in books/*; do
+          # Loop through all files in the web folder
+          for file in web/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               # URL Encode spaces for the markdown link
               encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
               # Construct the raw link
-              url="https://github.com/${{ github.repository }}/raw/books/books/$encoded_filename"
+              url="https://github.com/${{ github.repository }}/raw/web/web/$encoded_filename"
               echo "- [Download $filename]($url)" >> README.md
             fi
           done
           
       - name: Commit
         run: |
-          git add README.md books
+          git add README.md web
           git commit -m "[bot] Add website archive ${{ env.FILE_NAME }}"
           git push
