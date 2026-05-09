@@ -168,7 +168,7 @@ jobs:
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               # URL Encode spaces for the markdown link
-              encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
+              encoded_filename=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$filename")
               # Construct the raw link
               url="https://github.com/${{ github.repository }}/raw/videos/videos/$encoded_filename"
               echo "- [Download $filename]($url)" >> README.md
