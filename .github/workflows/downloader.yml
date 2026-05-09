@@ -20,6 +20,10 @@ on:
           - 720
           - 480
           - audio
+      output_name:
+        description: '📝 Output file name (optional, without extension)'
+        required: false
+        type: string
 
 jobs:
   download-and-release:
@@ -123,11 +127,19 @@ jobs:
           else
             FORMAT_OPTS="-f bestvideo[height<=${QUALITY}]+bestaudio/best[height<=${QUALITY}] --merge-output-format mp4"
           fi
+
+          # parse output name
+          OUTPUT_NAME="${{ inputs.output_name }}"
+          if [ -n "$OUTPUT_NAME" ]; then
+            OUTPUT_OPTS="-o ${OUTPUT_NAME}.%(ext)s"
+          else
+            OUTPUT_OPTS=""
+          fi
           
           # download using yt-dlp
           mkdir -p videos
           cd videos
-          yt-dlp --remote-components ejs:github --proxy "socks5://127.0.0.1:1080" $FORMAT_OPTS "${{ inputs.youtube_url }}"
+          yt-dlp --remote-components ejs:github --proxy "socks5://127.0.0.1:1080" $FORMAT_OPTS $OUTPUT_OPTS "${{ inputs.youtube_url }}"
 
           # find name
           FILE=$(ls -1 | head -n 1)
@@ -169,3 +181,4 @@ jobs:
           git add README.md videos
           git commit -m "[bot] Add video ${{ env.FILE_NO_EXTENSION }}"
           git push
+          
