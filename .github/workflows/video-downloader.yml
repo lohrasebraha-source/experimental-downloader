@@ -137,8 +137,8 @@ jobs:
           fi
           
           # download using yt-dlp
-          mkdir -p videos
-          cd videos
+          mkdir -p tmpvideos
+          cd tmpvideos
           yt-dlp --remote-components ejs:github --proxy "socks5://127.0.0.1:1080" $FORMAT_OPTS $OUTPUT_OPTS "${{ inputs.youtube_url }}"
 
           # find name
@@ -148,8 +148,7 @@ jobs:
           echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
 
           # zip
-          zip -s 45m "${FILE_NO_EXTENSION}.zip" "$FILE"
-          rm "$FILE"
+          zip -s 45m "../videos/${FILE_NO_EXTENSION}.zip" "$FILE"
           ls -la
           
           # stop WARP
@@ -164,7 +163,7 @@ jobs:
           echo "Generated on: $(date)" >> README.md
           echo "" >> README.md
           
-          # Loop through all files in the videos folder
+          # Loop through all files in the tmpvideos folder
           for file in videos/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
