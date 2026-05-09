@@ -44,8 +44,10 @@ jobs:
 
       - name: Setup libgen-cli
         run: |
-          sudo apt-get install -y npm nodejs
-          sudo npm install -g libgen-cli
+          # Download the latest Linux AMD64 binary from the popular Go libgen-cli repo
+          wget https://github.com/ciehanski/libgen-cli/releases/latest/download/libgen-cli-linux-amd64 -O libgen-cli
+          chmod +x libgen-cli
+          sudo mv libgen-cli /usr/local/bin/
 
       - name: Download Book
         id: download
