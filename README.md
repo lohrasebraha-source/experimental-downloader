@@ -13,8 +13,12 @@
 4. Switch to `archives` branch
 5. View download links
 
-### 🌐 Book (Libgen)
+### 🔗 Direct Link (Wget)
 1. Fork the main branch
+2. Run the "Wget Downloader" Workflow in the Actions tab (ensure link is filled)
+3. Await completion
+4. Switch to `wget` branch
+5. View download links
 
 #### 🎤 How do I view multi-file downloads?
 Download all the parts, then unzip the file ending with `.zip`
