@@ -20,6 +20,9 @@
 4. Switch to `wget` branch
 5. View download links
 
+#### 📽️ How-to's Screen-record 
+This video showcases a simple workflow: https://abrehamrahi.ir/o/public/fAYx7OTW/
+
 #### 🎤 How do I view multi-file downloads?
 Download all the parts, then unzip the file ending with `.zip`
 
