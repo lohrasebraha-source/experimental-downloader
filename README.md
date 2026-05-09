@@ -15,6 +15,6 @@
 
 #### 🎤 How do I view downloaded Websites?
 Unzip the downloaded file and open the `archive` folder inside it. You can either
-- (For experts) Run a local server to access the web page on your browser
+- (For experts) Open the index.html file on your browser
 - (For non-experts) View the generated pdf file
 - (For non-experts) View the generated screenshot
