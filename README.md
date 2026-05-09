@@ -2,7 +2,7 @@
 ### 🎥 Video (YouTube, X, etc.)
 1. Fork the main branch
 2. Run the "Video Downloader" Workflow in the Actions tab (ensure link is filled)
-3. Await completion
+3. Await completion (Some videos will fail)
 4. Switch to the `videos` branch
 5. View download links
 
