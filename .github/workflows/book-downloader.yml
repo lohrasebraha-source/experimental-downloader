@@ -1,0 +1,122 @@
+name: Book Downloader
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: '🔍 Search query or LibGen URL'
+        required: true
+        type: string
+      edition:
+        description: '📘 Edition number (optional)'
+        required: false
+        type: string
+      output_name:
+        description: '📝 Output name (optional, without extension)'
+        required: false
+        type: string
+
+jobs:
+  download-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Prepare books branch
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git fetch origin
+
+          if git ls-remote --exit-code --heads origin books; then
+            git checkout books
+            git pull origin books
+          else
+            git checkout --orphan books
+            git rm -rf . || true
+            mkdir -p books
+            git commit --allow-empty -m "[bot] Initialize books branch"
+            git push --set-upstream origin books
+          fi
+
+      - name: Install libgen-cli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip
+          
+          curl -L https://github.com/rust-lang/cargo/releases/latest/download/cargo-bin-x86_64-unknown-linux-gnu.zip -o cargo.zip
+          unzip cargo.zip -d cargo
+          export PATH="$PWD/cargo:$PATH"
+          echo "$PWD/cargo" >> $GITHUB_PATH
+
+          cargo install libgen-cli
+          libgen --version
+
+      - name: Download Book(s)
+        id: download
+        run: |
+          mkdir -p tmpbooks
+          cd tmpbooks
+
+          QUERY="${{ inputs.query }}"
+          EDITION="${{ inputs.edition }}"
+          OUTPUT_NAME="${{ inputs.output_name }}"
+
+          # Build libgen-cli command
+          if [ -n "$EDITION" ]; then
+            CMD="libgen download \"$QUERY\" --edition $EDITION"
+          else
+            CMD="libgen download \"$QUERY\""
+          fi
+
+          echo "Running: $CMD"
+          eval $CMD
+
+          # Find downloaded file
+          FILE=$(ls -1 | head -n 1)
+          FILE_NO_EXTENSION="${FILE%.*}"
+
+          # Override name if user provided one
+          if [ -n "$OUTPUT_NAME" ]; then
+            mv "$FILE" "${OUTPUT_NAME}.${FILE##*.}"
+            FILE="${OUTPUT_NAME}.${FILE##*.}"
+            FILE_NO_EXTENSION="$OUTPUT_NAME"
+          fi
+
+          echo "FILE=$FILE" >> $GITHUB_ENV
+          echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
+
+          mkdir -p ../books
+          zip -s 45m "../books/${FILE_NO_EXTENSION}.zip" "$FILE"
+
+      - name: Generate README with Download Links
+        run: |
+          rm -f README.md
+          
+          echo "# 📚 Book Download Links" > README.md
+          echo "Generated on: $(date)" >> README.md
+          echo "Search: \`${{ inputs.query }}\`" >> README.md
+          echo "" >> README.md
+          
+          # Loop through all files in books folder
+          for file in books/*; do
+            if [ -f "$file" ]; then
+              filename=$(basename "$file")
+              encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
+              url="https://github.com/${{ github.repository }}/raw/books/books/$encoded_filename"
+              echo "- [Download $filename]($url)" >> README.md
+            fi
+          done
+          
+      - name: Commit
+        run: |
+          git add README.md books
+          git commit -m "[bot] Add book ${{ env.FILE_NO_EXTENSION }}"
+          git push

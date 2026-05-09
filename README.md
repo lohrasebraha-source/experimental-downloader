@@ -13,6 +13,9 @@
 4. Switch to `archives` branch
 5. View download links
 
+### 🌐 Book (Libgen)
+1. Fork the main branch
+
 #### 🎤 How do I view multi-file downloads?
 Download all the parts, then unzip the file ending with `.zip`
 
