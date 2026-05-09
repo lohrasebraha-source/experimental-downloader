@@ -32,11 +32,10 @@ jobs:
             git pull origin archives
           else
             git checkout --orphan archives
-            git push --set-upstream origin archives
             git rm -rf . || true
             mkdir -p archives
             git commit --allow-empty -m "[bot] Initialize archives branch"
-            git push origin archives
+            git push --set-upstream origin archives
           fi
 
       - name: Setup WARP
