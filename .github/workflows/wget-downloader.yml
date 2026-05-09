@@ -44,14 +44,15 @@ jobs:
           mkdir -p tmpwget
           cd tmpwget
           
-          wget "${{ github.event.inputs.link }}"
+          wget --content-disposition "${{ github.event.inputs.link }}"
 
           # find name
           FILE=$(ls -1 | head -n 1)
           FILE_NO_EXTENSION="${FILE%.*}"
+          echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
 
           mkdir -p ../wget
-          zip -s 45m "../wget/${FILE_NO_EXTENSION}.zip" *
+          zip -s 45m "../wget/${FILE_NO_EXTENSION}.zip" "$FILE"
           
       - name: Generate README with Download Links
         run: |
