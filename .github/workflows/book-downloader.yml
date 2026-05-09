@@ -3,16 +3,12 @@ name: Book Downloader
 on:
   workflow_dispatch:
     inputs:
-      query:
-        description: '🔍 Search query or LibGen URL'
+      book_query:
+        description: '🔍 Book MD5 hash or search query'
         required: true
         type: string
-      edition:
-        description: '📘 Edition number (optional)'
-        required: false
-        type: string
       output_name:
-        description: '📝 Output name (optional, without extension)'
+        description: '📝 Output file name (optional, without extension)'
         required: false
         type: string
 
@@ -46,70 +42,65 @@ jobs:
             git push --set-upstream origin books
           fi
 
-      - name: Install libgen-cli
+      - name: Setup libgen-cli
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl unzip
-          
-          curl -L https://github.com/rust-lang/cargo/releases/latest/download/cargo-bin-x86_64-unknown-linux-gnu.zip -o cargo.zip
-          unzip cargo.zip -d cargo
-          export PATH="$PWD/cargo:$PATH"
-          echo "$PWD/cargo" >> $GITHUB_PATH
+          sudo apt-get install -y npm nodejs
+          sudo npm install -g libgen-cli
 
-          cargo install libgen-cli
-          libgen --version
-
-      - name: Download Book(s)
+      - name: Download Book
         id: download
         run: |
           mkdir -p tmpbooks
           cd tmpbooks
+          
+          # Run libgen-cli to download the book
+          # Note: adjust the exact command arguments based on the specific libgen-cli package syntax
+          libgen-cli download "${{ inputs.book_query }}"
 
-          QUERY="${{ inputs.query }}"
-          EDITION="${{ inputs.edition }}"
-          OUTPUT_NAME="${{ inputs.output_name }}"
-
-          # Build libgen-cli command
-          if [ -n "$EDITION" ]; then
-            CMD="libgen download \"$QUERY\" --edition $EDITION"
-          else
-            CMD="libgen download \"$QUERY\""
-          fi
-
-          echo "Running: $CMD"
-          eval $CMD
-
-          # Find downloaded file
+          # Find the downloaded file
           FILE=$(ls -1 | head -n 1)
-          FILE_NO_EXTENSION="${FILE%.*}"
-
-          # Override name if user provided one
-          if [ -n "$OUTPUT_NAME" ]; then
-            mv "$FILE" "${OUTPUT_NAME}.${FILE##*.}"
-            FILE="${OUTPUT_NAME}.${FILE##*.}"
-            FILE_NO_EXTENSION="$OUTPUT_NAME"
+          
+          if [ -z "$FILE" ]; then
+            echo "No file was downloaded!"
+            exit 1
           fi
 
+          # Parse output name
+          INPUT_NAME="${{ inputs.output_name }}"
+          if [ -n "$INPUT_NAME" ]; then
+            EXTENSION="${FILE##*.}"
+            mv "$FILE" "${INPUT_NAME}.${EXTENSION}"
+            FILE="${INPUT_NAME}.${EXTENSION}"
+          fi
+
+          FILE_NO_EXTENSION="${FILE%.*}"
           echo "FILE=$FILE" >> $GITHUB_ENV
           echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
 
+          # Move to the branch folder and zip in 45MB chunks
           mkdir -p ../books
           zip -s 45m "../books/${FILE_NO_EXTENSION}.zip" "$FILE"
+          
+          # Clean up the raw data
+          cd ..
+          rm -rf tmpbooks
 
       - name: Generate README with Download Links
         run: |
           rm -f README.md
           
-          echo "# 📚 Book Download Links" > README.md
+          echo "# 📥 Book Download Links" > README.md
           echo "Generated on: $(date)" >> README.md
-          echo "Search: \`${{ inputs.query }}\`" >> README.md
+          echo "Query: ${{ inputs.book_query }}" >> README.md
           echo "" >> README.md
           
-          # Loop through all files in books folder
+          # Loop through all files in the books folder
           for file in books/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
+              # URL Encode spaces for the markdown link
               encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
+              # Construct the raw link
               url="https://github.com/${{ github.repository }}/raw/books/books/$encoded_filename"
               echo "- [Download $filename]($url)" >> README.md
             fi
