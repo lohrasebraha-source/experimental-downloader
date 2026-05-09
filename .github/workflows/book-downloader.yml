@@ -55,7 +55,7 @@ jobs:
           mkdir -p tmpbooks
           cd tmpbooks
           
-          libgen-cli download "${{ inputs.book_query }}" --ipfs-mirrors
+          yes 1 | timeout 10m libgen-cli download "${{ github.event.inputs.book_query }}"
 
           # find the downloaded file
           FILE=$(ls -1 | head -n 1)
