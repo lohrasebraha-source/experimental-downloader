@@ -45,11 +45,10 @@ jobs:
             git pull origin videos
           else
             git checkout --orphan videos
-            git push --set-upstream origin videos
             git rm -rf . || true
             mkdir -p videos
             git commit --allow-empty -m "[bot] Initialize videos branch"
-            git push origin videos
+            git push --set-upstream origin videos
           fi
 
       - name: Setup FFmpeg
