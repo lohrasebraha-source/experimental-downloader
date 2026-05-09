@@ -29,6 +29,9 @@ Unzip the downloaded file and open the `archive` folder inside it. You can eithe
 - (For non-experts) View the generated pdf file
 - (For non-experts) View the generated screenshot
 
+#### 🎤 There's a bug, what should I do?
+This method is very much experimental and doesn't work for 100% of the cases. Create an Issue if you can.
+
 ## ⚠️ Legal Disclaimer
 **This tool is for educational purposes and personal archiving only.** 
 By using these workflows, you agree to the following:
