@@ -44,7 +44,7 @@ jobs:
           mkdir -p tmpwget
           cd tmpwget
           
-          wget --content-disposition "${{ github.event.inputs.link }}"
+          wget --content-disposition --trust-server-names "${{ github.event.inputs.link }}"
 
           # find name
           FILE=$(ls -1 | head -n 1)
