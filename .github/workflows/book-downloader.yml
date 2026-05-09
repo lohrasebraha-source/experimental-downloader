@@ -55,19 +55,16 @@ jobs:
           mkdir -p tmpbooks
           cd tmpbooks
           
-          # Run libgen-cli to download the book
-          # Note: adjust the exact command arguments based on the specific libgen-cli package syntax
-          libgen-cli download "${{ inputs.book_query }}"
+          libgen-cli download "${{ inputs.book_query }}" --ipfs-mirrors
 
-          # Find the downloaded file
+          # find the downloaded file
           FILE=$(ls -1 | head -n 1)
-          
           if [ -z "$FILE" ]; then
             echo "No file was downloaded!"
             exit 1
           fi
 
-          # Parse output name
+          # parse output name
           INPUT_NAME="${{ inputs.output_name }}"
           if [ -n "$INPUT_NAME" ]; then
             EXTENSION="${FILE##*.}"
@@ -79,14 +76,10 @@ jobs:
           echo "FILE=$FILE" >> $GITHUB_ENV
           echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
 
-          # Move to the branch folder and zip in 45MB chunks
+          # compress file
           mkdir -p ../books
           zip -s 45m "../books/${FILE_NO_EXTENSION}.zip" "$FILE"
           
-          # Clean up the raw data
-          cd ..
-          rm -rf tmpbooks
-
       - name: Generate README with Download Links
         run: |
           rm -f README.md
