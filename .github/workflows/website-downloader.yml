@@ -1,4 +1,4 @@
-name: ArchiveBox Web Downloader
+name: Web Downloader
 
 on:
   workflow_dispatch:
