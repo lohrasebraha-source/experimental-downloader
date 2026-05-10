@@ -57,8 +57,9 @@ jobs:
           SAFE_NAME=$(echo "$FILE" | sed 's/^[[:space:]]*//' | tr ' ' '_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
+          # zip
           mkdir -p ../wget
-          zip -s "${{ inputs.parts_size }}m" "../wget/${SAFE_NAME}.zip" "$FILE"
+          zip -0 -s "${{ inputs.parts_size }}m" "../wget/${SAFE_NAME}.zip" "$FILE"
           
       - name: Generate README with Download Links
         run: |

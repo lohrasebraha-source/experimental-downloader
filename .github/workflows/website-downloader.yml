@@ -127,8 +127,7 @@ jobs:
           OUTPUT_NAME="${{ inputs.output_name }}"
           
           # zip
-          # We zip the entire archive_data folder to preserve index.html and subfolders
-          zip -r -s "${{ inputs.parts_size }}m" "${OUTPUT_NAME}.zip" ../archive_data
+          zip -0 -r -s "${{ inputs.parts_size }}m" "${OUTPUT_NAME}.zip" ../archive_data
           
           echo "FILE_NAME=$OUTPUT_NAME" >> $GITHUB_ENV
 

@@ -153,7 +153,7 @@ jobs:
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
           # zip
-          zip -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" "$FILE"
+          zip -0 -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" "$FILE"
           ls -la
           
           # stop WARP
