@@ -15,7 +15,7 @@ on:
       use_warp:
         description: '🛡️ Use WARP (sometimes helps)'
         required: true
-        default: true
+        default: false
         type: boolean
 
 jobs:
