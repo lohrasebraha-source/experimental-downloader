@@ -17,6 +17,11 @@ on:
         required: true
         default: false
         type: boolean
+      parts_size:
+        description: '🫙 Parts size (MB)'
+        required: false
+        type: string
+        default: '45'
 
 jobs:
   archive-and-release:
@@ -123,7 +128,7 @@ jobs:
           
           # Zip the resulting archive data in 45MB chunks
           # We zip the entire archive_data folder to preserve index.html and subfolders
-          zip -r -s 45m "${OUTPUT_NAME}.zip" ../archive_data
+          zip -r -s "${{ inputs.parts_size }}m" "${OUTPUT_NAME}.zip" ../archive_data
           
           # Clean up the raw data
           sudo rm -rf ../archive_data

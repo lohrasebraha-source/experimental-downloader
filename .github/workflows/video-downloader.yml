@@ -20,6 +20,11 @@ on:
           - 720
           - 480
           - audio
+      parts_size:
+        description: '🫙 Parts size (MB)'
+        required: false
+        type: string
+        default: '45'
       output_name:
         description: '📝 Output file name (optional, without extension)'
         required: false
@@ -150,7 +155,7 @@ jobs:
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
           # zip
-          zip -s 45m "../videos/${SAFE_NAME}.zip" "$FILE"
+          zip -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" "$FILE"
           ls -la
           
           # stop WARP

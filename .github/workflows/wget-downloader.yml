@@ -7,6 +7,11 @@ on:
         description: '🔗 Direct Link'
         required: true
         type: string
+      parts_size:
+        description: '🫙 Parts size (MB)'
+        required: false
+        type: string
+        default: '45'
 
 jobs:
   download-and-release:
@@ -53,7 +58,7 @@ jobs:
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
           mkdir -p ../wget
-          zip -s 45m "../wget/${SAFE_NAME}.zip" "$FILE"
+          zip -s "${{ inputs.parts_size }}m" "../wget/${SAFE_NAME}.zip" "$FILE"
           
       - name: Generate README with Download Links
         run: |
