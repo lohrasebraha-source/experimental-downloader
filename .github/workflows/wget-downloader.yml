@@ -51,6 +51,9 @@ jobs:
           FILE_NO_EXTENSION="${FILE%.*}"
           SAFE_FILE=$(echo "$FILE" | sed 's/^[[:space:]]*//' | tr ' ' '_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          echo $FILE
+          echo $FILE_NO_EXTENSION
+          echo $SAFE_NAME
 
           mkdir -p ../wget
           zip -s 45m "../wget/${SAFE_NAME}.zip" "$FILE"
