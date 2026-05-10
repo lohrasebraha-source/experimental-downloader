@@ -1,4 +1,4 @@
-name: Web Downloader (Experimental)
+name: Web Downloader
 
 on:
   workflow_dispatch:
