@@ -1,4 +1,4 @@
-name: Web Downloader
+name: Web Downloader (Experimental)
 
 on:
   workflow_dispatch:
@@ -53,10 +53,13 @@ jobs:
           docker pull archivebox/archivebox:latest
       
       - name: Setup WARP
-        if: ${{ inputs.use_warp }}
+        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
-          # start WARP (thanks to https://avasam.ir ❤️‍🔥)
-          docker network create warp-net || true
+          # Clean up any existing container/network (useful for self-hosted runners)
+          docker rm -f warp 2>/dev/null || true
+          docker network create warp-net 2>/dev/null || true
+
+          # Start WARP 
           docker run -d \
             --name warp \
             --restart=always \
@@ -68,28 +71,29 @@ jobs:
             -v warp-data:/var/lib/cloudflare-warp \
             caomingjun/warp
 
-          # Waiting for WARP to initialize (15 seconds)...
-          sleep 15
+          echo "Waiting for WARP to initialize..."
 
-          # Checking WARP status...
-          for i in {1..5}; do
-            RESULT=$(curl -s --max-time 5 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace 2>/dev/null || echo "failed")
+          # Dynamic polling loop (up to 30 seconds max)
+          WARP_READY=false
+          for i in {1..10}; do
+            # Use 1.1.1.1 for faster trace resolution
+            RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
+            
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
-              echo "WARP is active!"
-              echo "$RESULT"
+              echo "✅ WARP proxy is ready! (Took $i attempts)"
+              echo "$RESULT" | grep -E "^(ip|warp|colo)=" # Print clean debug info
+              WARP_READY=true
               break
-            else
-              echo "Attempt $i/5 - WARP not ready yet, waiting..."
-              sleep 5
             fi
+            
+            echo "⏳ Attempt $i/10 - WARP not ready, waiting 3s..."
+            sleep 3
           done
 
-          FINAL=$(curl -s --max-time 10 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace 2>/dev/null || echo "failed")
-          if echo "$FINAL" | grep -qE "warp=(on|plus)"; then
-            echo "WARP proxy is ready!"
-          else
-            echo "WARP might not be fully active, but continuing anyway..."
-            echo "Response: $FINAL"
+          if [ "$WARP_READY" = false ]; then
+            echo "⚠️ WARP failed to activate fully, continuing anyway..."
+            echo "Last response: $RESULT"
+            # exit 1  <-- Uncomment this if you want the pipeline to FAIL when WARP fails
           fi
 
       - name: Archive Website
@@ -130,7 +134,6 @@ jobs:
         if: ${{ inputs.use_warp }}
         run: |
           docker stop warp || true
-          docker rm warp || true
 
       - name: Generate README with Download Links
         run: |
