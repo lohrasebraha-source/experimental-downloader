@@ -160,7 +160,6 @@ jobs:
           
           # stop WARP
           docker stop warp || true
-          docker rm warp || true
 
       - name: Generate README with Download Links
         run: |
