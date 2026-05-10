@@ -60,11 +60,11 @@ jobs:
       - name: Setup WARP
         if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
-          # Clean up any existing container/network (useful for self-hosted runners)
+          # clean up any existing container/network (useful for self-hosted runners)
           docker rm -f warp 2>/dev/null || true
           docker network create warp-net 2>/dev/null || true
 
-          # Start WARP 
+          # start WARP 
           docker run -d \
             --name warp \
             --restart=always \
@@ -78,7 +78,7 @@ jobs:
 
           echo "Waiting for WARP to initialize..."
 
-          # Dynamic polling loop (up to 30 seconds max)
+          # dynamic polling loop (up to 30 seconds max)
           WARP_READY=false
           for i in {1..10}; do
             # Use 1.1.1.1 for faster trace resolution
@@ -104,7 +104,7 @@ jobs:
       - name: Archive Website
         id: archive
         run: |
-          # Create a temporary directory for ArchiveBox data
+          # create a temporary directory for ArchiveBox data
           mkdir -p archive_data
           chmod 777 archive_data
 
@@ -114,24 +114,21 @@ jobs:
             PROXY_ARGS="--network warp-net -e HTTP_PROXY=socks5h://warp:1080 -e HTTPS_PROXY=socks5h://warp:1080"
           fi
           
-          # Initialize ArchiveBox
+          # initialize ArchiveBox
           docker run --rm $PROXY_ARGS -v $PWD/archive_data:/data archivebox/archivebox init --setup
           
-          # Add and archive the URL
+          # add and archive the URL
           docker run --rm $PROXY_ARGS -v $PWD/archive_data:/data archivebox/archivebox add "${{ inputs.website_url }}"
           
-          # Move to the branch folder
+          # move to the branch folder
           mkdir -p web
           cd web
           
           OUTPUT_NAME="${{ inputs.output_name }}"
           
-          # Zip the resulting archive data in 45MB chunks
+          # zip
           # We zip the entire archive_data folder to preserve index.html and subfolders
           zip -r -s "${{ inputs.parts_size }}m" "${OUTPUT_NAME}.zip" ../archive_data
-          
-          # Clean up the raw data
-          sudo rm -rf ../archive_data
           
           echo "FILE_NAME=$OUTPUT_NAME" >> $GITHUB_ENV
 
@@ -148,7 +145,7 @@ jobs:
           echo "Generated on: $(date)" >> README.md
           echo "" >> README.md
           
-          # Loop through all files in the web folder
+          # loop through all files in the web folder
           for file in web/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")

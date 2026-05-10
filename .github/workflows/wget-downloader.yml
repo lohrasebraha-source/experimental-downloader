@@ -68,7 +68,7 @@ jobs:
           echo "Generated on: $(date)" >> README.md
           echo "" >> README.md
           
-          # Loop through all files in the wget folder
+          # loop through all files in the wget folder
           for file in wget/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
