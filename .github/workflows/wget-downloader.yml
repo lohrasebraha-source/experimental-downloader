@@ -49,7 +49,7 @@ jobs:
           # find name
           FILE=$(ls -1 | head -n 1)
           FILE_NO_EXTENSION="${FILE%.*}"
-          SAFE_NAME=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$FILE")
+          SAFE_NAME=$(echo "$FILE" | sed 's/^[[:space:]]*//' | tr ' ' '_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
           mkdir -p ../wget
@@ -68,7 +68,7 @@ jobs:
             if [ -f "$file" ]; then
               filename=$(basename "$file")
               # URL Encode spaces for the markdown link
-              encoded_filename=$(echo "$filename" | sed 's/ /%20/g')
+              encoded_filename=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$filename")
               # Construct the raw link
               url="https://github.com/${{ github.repository }}/raw/wget/wget/$encoded_filename"
               echo "- [Download $filename]($url)" >> README.md
