@@ -96,18 +96,18 @@ jobs:
             RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
             
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
-              echo "✅ WARP proxy is ready! (Took $i attempts)"
+              echo "WARP proxy is ready! (Took $i attempts)"
               echo "$RESULT" | grep -E "^(ip|warp|colo)=" # Print clean debug info
               WARP_READY=true
               break
             fi
             
-            echo "⏳ Attempt $i/10 - WARP not ready, waiting 3s..."
+            echo "Attempt $i/10 - WARP not ready, waiting 3s..."
             sleep 3
           done
 
           if [ "$WARP_READY" = false ]; then
-            echo "⚠️ WARP failed to activate fully, continuing anyway..."
+            echo "WARP failed to activate fully, continuing anyway..."
             echo "Last response: $RESULT"
             # exit 1  <-- Uncomment this if you want the pipeline to FAIL when WARP fails
           fi
