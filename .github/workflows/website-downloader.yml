@@ -102,7 +102,7 @@ jobs:
           PROXY_ARGS=""
           if [ "${{ inputs.use_warp }}" = "true" ]; then
             echo "Using WARP proxy..."
-            PROXY_ARGS="-e HTTP_PROXY=socks5h://host.docker.internal:1080 -e HTTPS_PROXY=socks5h://host.docker.internal:1080"
+            PROXY_ARGS="--network warp-net -e HTTP_PROXY=socks5h://warp:1080 -e HTTPS_PROXY=socks5h://warp:1080"
           fi
           
           # Initialize ArchiveBox
