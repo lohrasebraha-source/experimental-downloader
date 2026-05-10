@@ -81,7 +81,6 @@ jobs:
           
           echo "# 📥 Archive Download Links" > README.md
           echo "Generated on: $(date)" >> README.md
-          echo "Source URL: ${{ inputs.website_url }}" >> README.md
           echo "" >> README.md
           
           # Loop through all files in the web folder
