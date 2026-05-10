@@ -10,7 +10,7 @@
 1. Fork the main branch
 2. Run the "Website Downloader" Workflow in the Actions tab (ensure link is filled and name is unique)
 3. Await completion
-4. Switch to `archives` branch
+4. Switch to `web` branch
 5. View download links
 
 ### 🔗 Direct Link (Wget)
@@ -27,7 +27,7 @@ This video showcases a simple workflow: https://abrehamrahi.ir/o/public/fAYx7OTW
 Download all the parts, then unzip the file ending with `.zip`
 
 #### 🎤 How do I view downloaded Websites?
-Unzip the downloaded file and open the `archive` folder inside it. You can either
+Unzip the downloaded file and open the `archivr` folder inside it. You can either
 - (For experts) Open the index.html file on your browser
 - (For non-experts) View the generated pdf file
 - (For non-experts) View the generated screenshot
