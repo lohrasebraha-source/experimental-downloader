@@ -69,7 +69,6 @@ jobs:
           ffmpeg -version
 
       - name: Setup WARP
-        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
           # clean up any existing container/network (useful for self-hosted runners)
           docker rm -f warp 2>/dev/null || true
@@ -115,7 +114,14 @@ jobs:
       - name: Setup yt-dlp
         run: |
           sudo apt-get install -y python3-pip curl
-          pip install yt-dlp
+          pip install yt-dlp --pre
+
+          # install deno
+          curl -fsSL https://deno.land/install.sh | sh
+          export DENO_INSTALL="$HOME/.deno"
+          export PATH="$DENO_INSTALL/bin:$PATH"
+          echo "$DENO_INSTALL/bin" >> $GITHUB_PATH
+          deno --version
           
       - name: Download videos
         id: download
