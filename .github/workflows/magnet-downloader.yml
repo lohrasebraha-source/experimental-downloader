@@ -132,7 +132,7 @@ jobs:
           mkdir -p ../magnet
           ls -la
           tree
-          zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" *
+          zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" *
 
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
