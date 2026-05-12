@@ -3,8 +3,12 @@ name: Magnet Downloader (Experimental)
 on:
   workflow_dispatch:
     inputs:
-      magnet_link:
-        description: '🧲 Magnet link (torrent)'
+      magnet:
+        description: '🧲 Magnet Address'
+        required: true
+        type: string
+      result_name:
+        description: '📝 Folder Name'
         required: true
         type: string
       use_warp:
@@ -12,10 +16,6 @@ on:
         required: true
         default: false
         type: boolean
-      output_name:
-        description: '📝 Output folder name'
-        required: false
-        type: string
       parts_size:
         description: '🫙 Parts size (MB)'
         required: false
@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -96,173 +96,70 @@ jobs:
             # exit 1  <-- Uncomment this if you want the pipeline to FAIL when WARP fails
           fi
 
-      - name: Setup qBittorrent-nox
+      - name: Setup aria2
         run: |
-          sudo apt-get update
-          sudo apt-get install -y qbittorrent-nox jq curl
+          sudo apt-get install -y aria2
+          aria2c --version
 
-          # create a dedicated download directory
-          mkdir -p torrent_data
-          chmod 777 torrent_data
-
-      - name: Start qBittorrent (with optional WARP)
-        run: |
-          USE_WARP="${{ inputs.use_warp }}"
-
-          # base docker args
-          DOCKER_ARGS="-d --name qbittorrent --restart=always -v $PWD/torrent_data:/downloads"
-          
-          # if warp is enabled, use warp network and socks5 proxy
-          if [ "$USE_WARP" = "true" ]; then
-            echo "starting qbittorrent with warp proxy..."
-            DOCKER_ARGS="$DOCKER_ARGS --network warp-net -e QBT_TORRENTING_PORT=58946 -e HTTP_PROXY=socks5h://warp:1080 -e HTTPS_PROXY=socks5h://warp:1080"
-          else
-            echo "starting qbittorrent without warp..."
-            DOCKER_ARGS="$DOCKER_ARGS -p 8080:8080 -p 58946:58946 -p 58946:58946/udp"
-          fi
-
-          # run qbittorrent-nox docker
-          docker rm -f qbittorrent 2>/dev/null || true
-          docker run $DOCKER_ARGS \
-            linuxserver/qbittorrent
-
-          echo "waiting for qbittorrent web ui to become available..."
-
-          # wait for web ui
-          QBT_READY=false
-          for i in {1..20}; do
-            if docker logs qbittorrent 2>&1 | grep -qi "web ui: now listening"; then
-              echo "qbittorrent web ui is ready! (took $i attempts)"
-              QBT_READY=true
-              break
-            fi
-            echo "attempt $i/20 - web ui not ready, waiting 3s..."
-            sleep 3
-          done
-
-          if [ "$QBT_READY" = false ]; then
-            echo "qbittorrent web ui failed to start"
-            docker logs qbittorrent || true
-            exit 1
-          fi
-
-      - name: Add magnet and wait for download
+      - name: Download
         id: download
-        env:
-          MAGNET_LINK: ${{ inputs.magnet_link }}
         run: |
-          # qbittorrent web api defaults
-          QBT_HOST="http://127.0.0.1:8080"
-          QBT_USER="admin"
-          QBT_PASS="adminadmin"
+          mkdir -p tmpmagnet
+          cd tmpmagnet
+          MAGNET="${{ inputs.magnet }}"
+          PART_SIZE="${{ inputs.parts_size }}M"
+          RESULT_NAME="${{ inputs.result_name }}"
 
-          echo "waiting a few seconds before contacting qbittorrent..."
-          sleep 10
-
-          # login
-          echo "logging into qbittorrent..."
-          COOKIE_JAR="cookies.txt"
-          curl -s -c "$COOKIE_JAR" -X POST \
-            --data "username=$QBT_USER&password=$QBT_PASS" \
-            "$QBT_HOST/api/v2/auth/login" > /dev/null || true
-
-          # add magnet
-          echo "adding magnet link to qbittorrent..."
-          curl -s -b "$COOKIE_JAR" -X POST \
-            --data-urlencode "urls=$MAGNET_LINK" \
-            --data "savepath=/downloads" \
-            "$QBT_HOST/api/v2/torrents/add"
-
-          # poll until download completes or times out
-          echo "waiting for torrent to complete (up to ~30 minutes)..."
-
-          MAX_MINUTES=30
-          SLEEP_SECONDS=30
-          ELAPSED=0
-          COMPLETED=false
-
-          while [ $ELAPSED -lt $((MAX_MINUTES * 60)) ]; do
-            # get torrents list
-            RESP=$(curl -s -b "$COOKIE_JAR" "$QBT_HOST/api/v2/torrents/info" || echo "[]")
-
-            # check completion state
-            # completed when progress == 1 for any torrent
-            DONE_COUNT=$(echo "$RESP" | jq '[.[] | select(.progress == 1)] | length' 2>/dev/null || echo "0")
-
-            if [ "$DONE_COUNT" != "0" ]; then
-              echo "torrent download completed."
-              COMPLETED=true
-              break
-            fi
-
-            echo "not done yet... elapsed ${ELAPSED}s / $((MAX_MINUTES * 60))s, sleeping ${SLEEP_SECONDS}s"
-            sleep $SLEEP_SECONDS
-            ELAPSED=$((ELAPSED + SLEEP_SECONDS))
-          done
-
-          if [ "$COMPLETED" = false ]; then
-            echo "timeout reached before completion, proceeding with whatever is downloaded..."
+          # Optional SOCKS5 proxy via WARP
+          PROXY_ARGS=""
+          if [ "${{ inputs.use_warp }}" = "true" ]; then
+            PROXY_ARGS="--all-proxy=socks5://127.0.0.1:1080"
           fi
 
-          # list download directory for debug
-          echo "downloaded files:"
-          ls -R torrent_data || true
+          aria2c \
+            --enable-dht=true \
+            --bt-enable-lpd=true \
+            --bt-max-peers=0 \
+            --seed-time=0 \
+            --follow-torrent=true \
+            --check-integrity=true \
+            --dir=magnet \
+            $PROXY_ARGS \
+            "$MAGNET"
 
-          # choose output name
-          OUTPUT_NAME="${{ inputs.output_name }}"
-          if [ -z "$OUTPUT_NAME" ]; then
-            # auto-detect a folder/file name
-            # prefer a single top-level directory if present
-            TOP_LEVEL=$(find torrent_data -mindepth 1 -maxdepth 1 -printf "%f\n" | head -n 1 || true)
-            if [ -z "$TOP_LEVEL" ]; then
-              OUTPUT_NAME="magnet_download"
-            else
-              OUTPUT_NAME="$TOP_LEVEL"
-            fi
-          fi
+          echo "Download completed"
 
-          # normalize for safe name
-          SAFE_NAME=$(echo "$OUTPUT_NAME" | sed 's/^[[:space:]]*//' | tr ' ' '_')
-          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
+          # zip
+          mkdir -p ../magnet
+          zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" "*"
 
-          # prepare branch folder
-          mkdir -p magnet
-
-          # zip everything downloaded
-          cd torrent_data
-          zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_NAME}.zip" .
-          cd ..
-
-      - name: Stop WARP and qBittorrent
-        if: ${{ always() }}
+      - name: Stop WARP
+        if: ${{ inputs.use_warp }}
         run: |
-          docker stop qbittorrent 2>/dev/null || true
-          docker rm qbittorrent 2>/dev/null || true
-          docker stop warp 2>/dev/null || true
-          docker rm warp 2>/dev/null || true
+          docker stop warp || true
 
       - name: Generate README with Download Links
         run: |
           rm -f README.md
           
           echo "# 📥 Magnet Download Links" > README.md
-          echo "generated on: $(date)" >> README.md
+          echo "Generated on: $(date)" >> README.md
           echo "" >> README.md
           
           # loop through all files in the magnet folder
           for file in magnet/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              # url encode spaces for the markdown link
+              # URL Encode spaces for the markdown link
               encoded_filename=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$filename")
-              # construct the raw link
+              # Construct the raw link
               url="https://github.com/${{ github.repository }}/raw/magnet/magnet/$encoded_filename"
-              echo "- [download $filename]($url)" >> README.md
+              echo "- [Download $filename]($url)" >> README.md
             fi
           done
-
+          
       - name: Commit
         run: |
           git add README.md magnet
-          git commit -m "[bot] Add magnet download ${{ env.SAFE_NAME }}" || echo "nothing to commit"
-          git push || echo "nothing to push"
+          git commit -m "[bot] Add magnet download ${{ env.SAFE_NAME }}"
+          git push
