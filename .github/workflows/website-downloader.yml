@@ -81,7 +81,7 @@ jobs:
           # dynamic polling loop (up to 30 seconds max)
           WARP_READY=false
           for i in {1..10}; do
-            # Use 1.1.1.1 for faster trace resolution
+            # use 1.1.1.1 for faster trace resolution
             RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
             
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then

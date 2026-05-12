@@ -7,6 +7,11 @@ on:
         description: '🔗 Direct Link'
         required: true
         type: string
+      use_warp:
+        description: '🛡️ Use WARP (sometimes helps | +40s)'
+        required: true
+        default: false
+        type: boolean
       parts_size:
         description: '🫙 Parts size (MB)'
         required: false
@@ -43,12 +48,61 @@ jobs:
             git push --set-upstream origin wget
           fi
 
+      - name: Setup WARP
+        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
+        run: |
+          # clean up any existing container/network (useful for self-hosted runners)
+          docker rm -f warp 2>/dev/null || true
+          docker network create warp-net 2>/dev/null || true
+
+          # start WARP 
+          docker run -d \
+            --name warp \
+            --restart=always \
+            --network warp-net \
+            -p 1080:1080 \
+            --cap-add NET_ADMIN \
+            --sysctl net.ipv6.conf.all.disable_ipv6=0 \
+            --sysctl net.ipv4.conf.all.src_valid_mark=1 \
+            -v warp-data:/var/lib/cloudflare-warp \
+            caomingjun/warp
+
+          echo "Waiting for WARP to initialize..."
+
+          # dynamic polling loop (up to 30 seconds max)
+          WARP_READY=false
+          for i in {1..10}; do
+            # use 1.1.1.1 for faster trace resolution
+            RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
+            
+            if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
+              echo "WARP proxy is ready! (Took $i attempts)"
+              echo "$RESULT" | grep -E "^(ip|warp|colo)=" # Print clean debug info
+              WARP_READY=true
+              break
+            fi
+            
+            echo "Attempt $i/10 - WARP not ready, waiting 3s..."
+            sleep 3
+          done
+
+          if [ "$WARP_READY" = false ]; then
+            echo "WARP failed to activate fully, continuing anyway..."
+            echo "Last response: $RESULT"
+            # exit 1  <-- Uncomment this if you want the pipeline to FAIL when WARP fails
+          fi
+
       - name: Download
         id: download
         run: |
           mkdir -p tmpwget
           cd tmpwget
           
+          if [ "${{ inputs.use_warp }}" = "true" ]; then
+            echo "Using WARP proxy..."
+            export http_proxy=socks5h://warp:1080
+          fi
+
           wget --content-disposition --trust-server-names "${{ github.event.inputs.link }}"
 
           # find name
@@ -60,7 +114,12 @@ jobs:
           # zip
           mkdir -p ../wget
           zip -0 -s "${{ inputs.parts_size }}m" "../wget/${SAFE_NAME}.zip" "$FILE"
-          
+
+      - name: Stop WARP
+        if: ${{ inputs.use_warp }}
+        run: |
+          docker stop warp || true
+
       - name: Generate README with Download Links
         run: |
           rm -f README.md

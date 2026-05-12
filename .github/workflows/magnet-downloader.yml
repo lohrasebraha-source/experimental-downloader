@@ -13,7 +13,7 @@ on:
         default: false
         type: boolean
       output_name:
-        description: '📝 Output base name (optional, folder/file)'
+        description: '📝 Output folder name'
         required: false
         type: string
       parts_size:
@@ -59,7 +59,7 @@ jobs:
           docker rm -f warp 2>/dev/null || true
           docker network create warp-net 2>/dev/null || true
 
-          # start warp
+          # start WARP 
           docker run -d \
             --name warp \
             --restart=always \
@@ -71,29 +71,29 @@ jobs:
             -v warp-data:/var/lib/cloudflare-warp \
             caomingjun/warp
 
-          echo "waiting for warp to initialize..."
+          echo "Waiting for WARP to initialize..."
 
           # dynamic polling loop (up to 30 seconds max)
           WARP_READY=false
           for i in {1..10}; do
             # use 1.1.1.1 for faster trace resolution
             RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
-
+            
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
-              echo "warp proxy is ready! (took $i attempts)"
-              echo "$RESULT" | grep -E "^(ip|warp|colo)="
+              echo "WARP proxy is ready! (Took $i attempts)"
+              echo "$RESULT" | grep -E "^(ip|warp|colo)=" # Print clean debug info
               WARP_READY=true
               break
             fi
-
-            echo "attempt $i/10 - warp not ready, waiting 3s..."
+            
+            echo "Attempt $i/10 - WARP not ready, waiting 3s..."
             sleep 3
           done
 
           if [ "$WARP_READY" = false ]; then
-            echo "warp failed to activate fully, continuing anyway..."
-            echo "last response: $RESULT"
-            # exit 1  <-- uncomment this if you want the pipeline to fail when warp fails
+            echo "WARP failed to activate fully, continuing anyway..."
+            echo "Last response: $RESULT"
+            # exit 1  <-- Uncomment this if you want the pipeline to FAIL when WARP fails
           fi
 
       - name: Setup qBittorrent-nox
