@@ -4,63 +4,70 @@ on:
   workflow_dispatch:
     inputs:
       magnet_link:
-        description: '🧲 Magnet Link URI'
+        description: '🧲 Magnet link (torrent)'
         required: true
         type: string
-      use_warp:
-        description: '🛡️ Use WARP (recommended | +40s)'
+      client:
+        description: '📦 Torrent client'
         required: true
-        default: true
+        default: 'aria2'
+        type: choice
+        options:
+          - aria2
+          - transmission
+      use_warp:
+        description: '🛡️ Use WARP (sometimes helps | +40s)'
+        required: true
+        default: false
         type: boolean
       parts_size:
         description: '🫙 Parts size (MB)'
         required: false
         type: string
         default: '45'
+      output_name:
+        description: '📝 Output folder name (optional, will be used as root dir)'
+        required: false
+        type: string
 
 jobs:
-  download-and-commit:
+  download-and-release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    
+
     steps:
-      - name: Checkout repository
+      - name: checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: Prepare magnets branch
+      - name: prepare magnet branch
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git fetch origin
 
-          if git ls-remote --exit-code --heads origin magnets; then
-            git checkout magnets
-            git pull origin magnets
+          if git ls-remote --exit-code --heads origin magnet; then
+            git checkout magnet
+            git pull origin magnet
           else
-            git checkout --orphan magnets
+            git checkout --orphan magnet
             git rm -rf . || true
-            mkdir -p magnets
-            git commit --allow-empty -m "[bot] Initialize magnets branch"
-            git push --set-upstream origin magnets
+            mkdir -p magnet
+            git commit --allow-empty -m "[bot] Initialize magnet branch"
+            git push --set-upstream origin magnet
           fi
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y aria2 zip
-
-      - name: Setup WARP
-        if: ${{ inputs.use_warp }}
+      - name: setup warp
+        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
           # clean up any existing container/network (useful for self-hosted runners)
           docker rm -f warp 2>/dev/null || true
           docker network create warp-net 2>/dev/null || true
 
-          # start WARP 
+          # start warp
           docker run -d \
             --name warp \
             --restart=always \
@@ -72,97 +79,132 @@ jobs:
             -v warp-data:/var/lib/cloudflare-warp \
             caomingjun/warp
 
-          echo "Waiting for WARP to initialize..."
+          echo "waiting for warp to initialize..."
 
-          # dynamic polling loop (up to 30 seconds max)
+          # dynamic polling loop (up to ~30 seconds)
           WARP_READY=false
           for i in {1..10}; do
-            # use 1.1.1.1 for faster trace resolution
-            RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://cloudflare.com/cdn-cgi/trace 2>/dev/null || true)
-            
+            RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
+
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
-              echo "WARP proxy is ready! (Took $i attempts)"
-              echo "$RESULT" | grep -E "^(ip|warp|colo)=" # print clean debug info
+              echo "warp proxy is ready! (took $i attempts)"
+              echo "$RESULT" | grep -E "^(ip|warp|colo)="
               WARP_READY=true
               break
             fi
-            
-            echo "Attempt $i/10 - WARP not ready, waiting 3s..."
+
+            echo "attempt $i/10 - warp not ready, waiting 3s..."
             sleep 3
           done
 
           if [ "$WARP_READY" = false ]; then
-            echo "WARP failed to activate fully, continuing anyway..."
-            echo "Last response: $RESULT"
-            # exit 1  <-- uncomment this if you want the pipeline to FAIL when WARP fails
+            echo "warp failed to activate fully, continuing anyway..."
+            echo "last response: $RESULT"
+            # exit 1  # uncomment this if you want the pipeline to fail when warp fails
           fi
 
-      - name: Download from Magnet
+      - name: install torrent client
+        run: |
+          sudo apt-get update
+
+          if [ "${{ inputs.client }}" = "aria2" ]; then
+            sudo apt-get install -y aria2
+          else
+            sudo apt-get install -y transmission-cli
+          fi
+
+      - name: download from magnet
         id: download
         run: |
-          # create a temporary directory for the download
-          mkdir -p tmpmagnets
-          cd tmpmagnets
-          
+          mkdir -p tmpmagnet
+          cd tmpmagnet
+
           PROXY_ARGS=""
           if [ "${{ inputs.use_warp }}" = "true" ]; then
-            echo "Using WARP proxy for download..."
-            PROXY_ARGS="--all-proxy=socks5://127.0.0.1:1080"
+            # use socks5h so hostname resolution goes through warp
+            PROXY_ARGS="--all-proxy=socks5h://127.0.0.1:1080"
           fi
 
-          # start download with aria2
-          # --seed-time=0 ensures we stop after download is complete
-          aria2c --seed-time=0 --bt-stop-timeout=300 $PROXY_ARGS "${{ inputs.magnet_link }}"
-          
-          # find the name of the downloaded file or directory
-          # handle cases where there might be a .aria2 control file
-          DOWNLOADED_ITEM=$(ls -1 | grep -v ".aria2" | head -n 1)
-          
-          if [ -z "$DOWNLOADED_ITEM" ]; then
-            echo "::error::No file was downloaded or found!"
+          CLIENT="${{ inputs.client }}"
+
+          echo "using client: $CLIENT"
+
+          if [ "$CLIENT" = "aria2" ]; then
+            # aria2 settings tuned for smoother magnet downloads in ci
+            aria2c \
+              --continue=true \
+              --max-connection-per-server=4 \
+              --min-split-size=10M \
+              --summary-interval=30 \
+              --content-disposition-default-utf8=true \
+              --dir="." \
+              $PROXY_ARGS \
+              "${{ inputs.magnet_link }}"
+          else
+            # transmission-cli fallback (no proxy args support in cli directly)
+            if [ "${{ inputs.use_warp }}" = "true" ]; then
+              echo "warning: transmission-cli does not support direct socks5 proxy, using system env instead"
+              export ALL_PROXY="socks5h://127.0.0.1:1080"
+            fi
+
+            transmission-cli -w "." "${{ inputs.magnet_link }}"
+          fi
+
+          # find downloaded content
+          # prefer single top-level dir, otherwise zip everything
+          TOP_ITEM=$(ls -1 | head -n 1 || true)
+
+          if [ -z "$TOP_ITEM" ]; then
+            echo "nothing downloaded!"
             exit 1
           fi
-          
-          echo "Downloaded item: $DOWNLOADED_ITEM"
-          SAFE_NAME=$(echo "$DOWNLOADED_ITEM" | sed 's/^[[:space:]]*//' | tr ' ' '_')
-          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
-          
-          # create the destination directory
-          mkdir -p ../magnets
 
-          # zip the content, -r for directories, -0 for no compression
-          zip -0 -r -s "${{ inputs.parts_size }}m" "../magnets/${SAFE_NAME}.zip" "$DOWNLOADED_ITEM"
-          
-          echo "Zipping complete. Files are in the 'magnets' directory."
-          ls -lh ../magnets
+          OUTPUT_NAME="${{ inputs.output_name }}"
+          if [ -z "$OUTPUT_NAME" ]; then
+            # derive a safe name from the top item
+            SAFE_BASE=$(echo "$TOP_ITEM" | sed 's/^[[:space:]]*//' | tr ' ' '_' )
+          else
+            SAFE_BASE=$(echo "$OUTPUT_NAME" | sed 's/^[[:space:]]*//' | tr ' ' '_' )
+          fi
 
-      - name: Stop WARP
-        if: ${{ always() && inputs.use_warp }}
+          echo "SAFE_BASE=$SAFE_BASE" >> $GITHUB_ENV
+
+          mkdir -p ../magnet
+
+          if [ -d "$TOP_ITEM" ]; then
+            # top item is a directory, zip it
+            zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_BASE}.zip" "$TOP_ITEM"
+          else
+            # multiple files or single file, zip everything in current dir
+            zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_BASE}.zip" .
+          fi
+
+      - name: stop warp
+        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
           docker stop warp || true
-          
-      - name: Generate README with Download Links
+
+      - name: generate readme with download links
         run: |
           rm -f README.md
-          
-          echo "# 🧲 Magnet Download Links" > README.md
-          echo "Generated on: $(date)" >> README.md
+
+          echo "# 📥 magnet download links" > README.md
+          echo "generated on: $(date)" >> README.md
           echo "" >> README.md
-          
-          # loop through all files in the magnets folder
-          for file in magnets/*; do
+
+          # loop through all files in the magnet folder
+          for file in magnet/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              # URL encode the filename for the markdown link
+              # url encode spaces and special characters for the markdown link
               encoded_filename=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$filename")
-              # construct the raw github link
-              url="https://github.com/${{ github.repository }}/raw/magnets/magnets/$encoded_filename"
-              echo "- [Download $filename]($url)" >> README.md
+              url="https://github.com/${{ github.repository }}/raw/magnet/magnet/$encoded_filename"
+              echo "- [download $filename]($url)" >> README.md
             fi
           done
 
-      - name: Commit Files
+      - name: commit
         run: |
-          git add README.md magnets
-          git commit -m "[bot] Add magnet download ${{ env.SAFE_NAME }}"
+          git add README.md magnet
+          git commit -m "[bot] Add magnet download ${{ env.SAFE_BASE }}" || echo "nothing to commit"
           git push
