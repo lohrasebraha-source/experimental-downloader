@@ -122,7 +122,7 @@ jobs:
           PROXY_ARGS=""
           if [ "${{ inputs.use_warp }}" = "true" ]; then
             # use socks5h so hostname resolution goes through warp
-            PROXY_ARGS="--all-proxy=socks5://127.0.0.1:1080"
+            PROXY_ARGS="--all-proxy=\"socks5://127.0.0.1:1080\""
           fi
 
           CLIENT="${{ inputs.client }}"
