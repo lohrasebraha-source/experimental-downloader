@@ -1,4 +1,4 @@
-name: Magnet Downloader (Experimental)
+name: Magnet Downloader
 
 on:
   workflow_dispatch:

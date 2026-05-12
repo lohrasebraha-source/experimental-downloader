@@ -13,12 +13,18 @@
 4. Switch to `web` branch
 5. View download links
 
-
-### 🔗 Direct Link (Wget)
+### 🔗 Direct Link Download (Wget)
 1. Fork the main branch
 2. Run the "Wget Downloader" Workflow in the Actions tab (ensure link is filled)
 3. Await completion
 4. Switch to `wget` branch
+5. View download links
+
+### 🧲 Magnet Download (aria2)
+1. Fork the main branch
+2. Run the "Magnet Downloader" workflow in the Actions tab (ensure magnet link is filled and folder name is unique)
+3. Await completion
+4. Switch to `magnet` branch
 5. View download links
 
 #### 📽️ How-to's Screen-record 
