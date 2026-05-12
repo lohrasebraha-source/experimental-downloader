@@ -58,7 +58,7 @@ jobs:
           docker pull archivebox/archivebox:latest
       
       - name: Setup WARP
-        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
+        if: ${{ inputs.use_warp }}
         run: |
           # clean up any existing container/network (useful for self-hosted runners)
           docker rm -f warp 2>/dev/null || true
