@@ -9,6 +9,7 @@ on:
         type: string
       result_name:
         description: '📝 Folder Name'
+        default: 'magnet_archive'
         required: true
         type: string
       use_warp:
