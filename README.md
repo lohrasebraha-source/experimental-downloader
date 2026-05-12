@@ -35,7 +35,7 @@ Unzip the downloaded file and open the `archive` folder inside it. You can eithe
 
 #### 🎤 How do I delete the downloaded files from the repository?
 Click on this button in your repo's main page to access the list of branches:  
-[Main repo page circling the branches page button](https://abrehamrahi.ir/o/public/8tQTYpkc/). 
+[Main repo page circling the branches page button](https://abrehamrahi.ir/o/public/8tQTYpkc/).  
 Then delete the branches you no longer need.
 
 #### 🎤 There's a bug, what should I do?
