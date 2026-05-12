@@ -112,9 +112,8 @@ jobs:
           RESULT_NAME="${{ inputs.result_name }}"
 
           # Optional SOCKS5 proxy via WARP
-          PROXY_ARGS=""
           if [ "${{ inputs.use_warp }}" = "true" ]; then
-            PROXY_ARGS="--all-proxy=socks5://127.0.0.1:1080"
+            export http_proxy=socks5h://127.0.0.1:1080
           fi
 
           aria2c \
@@ -125,7 +124,6 @@ jobs:
             --follow-torrent=true \
             --check-integrity=true \
             --dir=magnet \
-            $PROXY_ARGS \
             "$MAGNET"
 
           echo "Download completed"
