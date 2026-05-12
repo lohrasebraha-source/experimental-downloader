@@ -13,6 +13,7 @@
 4. Switch to `web` branch
 5. View download links
 
+
 ### 🔗 Direct Link (Wget)
 1. Fork the main branch
 2. Run the "Wget Downloader" Workflow in the Actions tab (ensure link is filled)
@@ -31,6 +32,11 @@ Unzip the downloaded file and open the `archive` folder inside it. You can eithe
 - (For experts) Open the index.html file on your browser
 - (For non-experts) View the generated pdf file
 - (For non-experts) View the generated screenshot
+
+#### 🎤 How do I delete the downloaded files from the repository?
+Click on this button in your repo's main page to access the list of branches:  
+[Main repo page circling the branches page button](https://abrehamrahi.ir/o/public/8tQTYpkc/).  
+Then delete the branches you no longer need.
 
 #### 🎤 There's a bug, what should I do?
 This method is very much experimental and doesn't work for 100% of the cases. Create an Issue if you can.
