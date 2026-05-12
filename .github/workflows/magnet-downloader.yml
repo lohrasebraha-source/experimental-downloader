@@ -108,7 +108,7 @@ jobs:
           mkdir -p tmpmagnet
           cd tmpmagnet
           MAGNET="${{ inputs.magnet }}"
-          PART_SIZE="${{ inputs.parts_size }}M"
+          PART_SIZE="${{ inputs.parts_size }}"
           RESULT_NAME="${{ inputs.result_name }}"
 
           # Optional SOCKS5 proxy via WARP
@@ -130,6 +130,8 @@ jobs:
 
           # zip
           mkdir -p ../magnet
+          ls -la
+          echo zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" "*"
           zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" "*"
 
       - name: Stop WARP
