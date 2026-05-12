@@ -7,28 +7,20 @@ on:
         description: '🧲 Magnet link (torrent)'
         required: true
         type: string
-      client:
-        description: '📦 Torrent client'
-        required: true
-        default: 'aria2'
-        type: choice
-        options:
-          - aria2
-          - transmission
       use_warp:
         description: '🛡️ Use WARP (sometimes helps | +40s)'
         required: true
         default: false
         type: boolean
+      output_name:
+        description: '📝 Output base name (optional, folder/file)'
+        required: false
+        type: string
       parts_size:
         description: '🫙 Parts size (MB)'
         required: false
         type: string
         default: '45'
-      output_name:
-        description: '📝 Output folder name (optional, will be used as root dir)'
-        required: false
-        type: string
 
 jobs:
   download-and-release:
@@ -37,13 +29,13 @@ jobs:
       contents: write
 
     steps:
-      - name: checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           persist-credentials: true
           fetch-depth: 0
 
-      - name: prepare magnet branch
+      - name: Prepare magnet branch
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -60,7 +52,7 @@ jobs:
             git push --set-upstream origin magnet
           fi
 
-      - name: setup warp
+      - name: Setup WARP
         if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
         run: |
           # clean up any existing container/network (useful for self-hosted runners)
@@ -81,9 +73,10 @@ jobs:
 
           echo "waiting for warp to initialize..."
 
-          # dynamic polling loop (up to ~30 seconds)
+          # dynamic polling loop (up to 30 seconds max)
           WARP_READY=false
           for i in {1..10}; do
+            # use 1.1.1.1 for faster trace resolution
             RESULT=$(curl -s --max-time 3 --socks5-hostname 127.0.0.1:1080 https://1.1.1.1/cdn-cgi/trace 2>/dev/null || true)
 
             if echo "$RESULT" | grep -qE "warp=(on|plus)"; then
@@ -100,115 +93,176 @@ jobs:
           if [ "$WARP_READY" = false ]; then
             echo "warp failed to activate fully, continuing anyway..."
             echo "last response: $RESULT"
-            # exit 1  # uncomment this if you want the pipeline to fail when warp fails
+            # exit 1  <-- uncomment this if you want the pipeline to fail when warp fails
           fi
 
-      - name: install torrent client
+      - name: Setup qBittorrent-nox
         run: |
           sudo apt-get update
+          sudo apt-get install -y qbittorrent-nox jq curl
 
-          if [ "${{ inputs.client }}" = "aria2" ]; then
-            sudo apt-get remove -y aria2
-            sudo apt-get install -y software-properties-common
-            sudo add-apt-repository -y ppa:aria2/stable
-            sudo apt-get update
-            sudo apt-get install -y aria2
-          else
-            sudo apt-get install -y transmission-cli
-          fi
+          # create a dedicated download directory
+          mkdir -p torrent_data
+          chmod 777 torrent_data
 
-      - name: download from magnet
-        id: download
+      - name: Start qBittorrent (with optional WARP)
         run: |
-          mkdir -p tmpmagnet
-          cd tmpmagnet
+          USE_WARP="${{ inputs.use_warp }}"
 
-          PROXY_ARGS=""
-          if [ "${{ inputs.use_warp }}" = "true" ]; then
-            # use socks5 so hostname resolution goes through warp
-            PROXY_ARGS="--all-proxy=127.0.0.1:1080 --all-proxy-type=socks5"
-          fi
-
-          CLIENT="${{ inputs.client }}"
-
-          echo "using client: $CLIENT"
-
-          if [ "$CLIENT" = "aria2" ]; then
-            # aria2 settings tuned for smoother magnet downloads in ci
-            aria2c \
-              --continue=true \
-              --max-connection-per-server=4 \
-              --min-split-size=10M \
-              --summary-interval=30 \
-              --content-disposition-default-utf8=true \
-              --dir="." \
-              $PROXY_ARGS \
-              "${{ inputs.magnet_link }}"
+          # base docker args
+          DOCKER_ARGS="-d --name qbittorrent --restart=always -v $PWD/torrent_data:/downloads"
+          
+          # if warp is enabled, use warp network and socks5 proxy
+          if [ "$USE_WARP" = "true" ]; then
+            echo "starting qbittorrent with warp proxy..."
+            DOCKER_ARGS="$DOCKER_ARGS --network warp-net -e QBT_TORRENTING_PORT=58946 -e HTTP_PROXY=socks5h://warp:1080 -e HTTPS_PROXY=socks5h://warp:1080"
           else
-            # transmission-cli fallback (no proxy args support in cli directly)
-            if [ "${{ inputs.use_warp }}" = "true" ]; then
-              echo "warning: transmission-cli does not support direct socks5 proxy, using system env instead"
-              export ALL_PROXY="socks5h://127.0.0.1:1080"
-            fi
-
-            transmission-cli -w "." "${{ inputs.magnet_link }}"
+            echo "starting qbittorrent without warp..."
+            DOCKER_ARGS="$DOCKER_ARGS -p 8080:8080 -p 58946:58946 -p 58946:58946/udp"
           fi
 
-          # find downloaded content
-          # prefer single top-level dir, otherwise zip everything
-          TOP_ITEM=$(ls -1 | head -n 1 || true)
+          # run qbittorrent-nox docker
+          docker rm -f qbittorrent 2>/dev/null || true
+          docker run $DOCKER_ARGS \
+            linuxserver/qbittorrent
 
-          if [ -z "$TOP_ITEM" ]; then
-            echo "nothing downloaded!"
+          echo "waiting for qbittorrent web ui to become available..."
+
+          # wait for web ui
+          QBT_READY=false
+          for i in {1..20}; do
+            if docker logs qbittorrent 2>&1 | grep -qi "web ui: now listening"; then
+              echo "qbittorrent web ui is ready! (took $i attempts)"
+              QBT_READY=true
+              break
+            fi
+            echo "attempt $i/20 - web ui not ready, waiting 3s..."
+            sleep 3
+          done
+
+          if [ "$QBT_READY" = false ]; then
+            echo "qbittorrent web ui failed to start"
+            docker logs qbittorrent || true
             exit 1
           fi
 
+      - name: Add magnet and wait for download
+        id: download
+        env:
+          MAGNET_LINK: ${{ inputs.magnet_link }}
+        run: |
+          # qbittorrent web api defaults
+          QBT_HOST="http://127.0.0.1:8080"
+          QBT_USER="admin"
+          QBT_PASS="adminadmin"
+
+          echo "waiting a few seconds before contacting qbittorrent..."
+          sleep 10
+
+          # login
+          echo "logging into qbittorrent..."
+          COOKIE_JAR="cookies.txt"
+          curl -s -c "$COOKIE_JAR" -X POST \
+            --data "username=$QBT_USER&password=$QBT_PASS" \
+            "$QBT_HOST/api/v2/auth/login" > /dev/null || true
+
+          # add magnet
+          echo "adding magnet link to qbittorrent..."
+          curl -s -b "$COOKIE_JAR" -X POST \
+            --data-urlencode "urls=$MAGNET_LINK" \
+            --data "savepath=/downloads" \
+            "$QBT_HOST/api/v2/torrents/add"
+
+          # poll until download completes or times out
+          echo "waiting for torrent to complete (up to ~30 minutes)..."
+
+          MAX_MINUTES=30
+          SLEEP_SECONDS=30
+          ELAPSED=0
+          COMPLETED=false
+
+          while [ $ELAPSED -lt $((MAX_MINUTES * 60)) ]; do
+            # get torrents list
+            RESP=$(curl -s -b "$COOKIE_JAR" "$QBT_HOST/api/v2/torrents/info" || echo "[]")
+
+            # check completion state
+            # completed when progress == 1 for any torrent
+            DONE_COUNT=$(echo "$RESP" | jq '[.[] | select(.progress == 1)] | length' 2>/dev/null || echo "0")
+
+            if [ "$DONE_COUNT" != "0" ]; then
+              echo "torrent download completed."
+              COMPLETED=true
+              break
+            fi
+
+            echo "not done yet... elapsed ${ELAPSED}s / $((MAX_MINUTES * 60))s, sleeping ${SLEEP_SECONDS}s"
+            sleep $SLEEP_SECONDS
+            ELAPSED=$((ELAPSED + SLEEP_SECONDS))
+          done
+
+          if [ "$COMPLETED" = false ]; then
+            echo "timeout reached before completion, proceeding with whatever is downloaded..."
+          fi
+
+          # list download directory for debug
+          echo "downloaded files:"
+          ls -R torrent_data || true
+
+          # choose output name
           OUTPUT_NAME="${{ inputs.output_name }}"
           if [ -z "$OUTPUT_NAME" ]; then
-            # derive a safe name from the top item
-            SAFE_BASE=$(echo "$TOP_ITEM" | sed 's/^[[:space:]]*//' | tr ' ' '_' )
-          else
-            SAFE_BASE=$(echo "$OUTPUT_NAME" | sed 's/^[[:space:]]*//' | tr ' ' '_' )
+            # auto-detect a folder/file name
+            # prefer a single top-level directory if present
+            TOP_LEVEL=$(find torrent_data -mindepth 1 -maxdepth 1 -printf "%f\n" | head -n 1 || true)
+            if [ -z "$TOP_LEVEL" ]; then
+              OUTPUT_NAME="magnet_download"
+            else
+              OUTPUT_NAME="$TOP_LEVEL"
+            fi
           fi
 
-          echo "SAFE_BASE=$SAFE_BASE" >> $GITHUB_ENV
+          # normalize for safe name
+          SAFE_NAME=$(echo "$OUTPUT_NAME" | sed 's/^[[:space:]]*//' | tr ' ' '_')
+          echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
 
-          mkdir -p ../magnet
+          # prepare branch folder
+          mkdir -p magnet
 
-          if [ -d "$TOP_ITEM" ]; then
-            # top item is a directory, zip it
-            zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_BASE}.zip" "$TOP_ITEM"
-          else
-            # multiple files or single file, zip everything in current dir
-            zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_BASE}.zip" .
-          fi
+          # zip everything downloaded
+          cd torrent_data
+          zip -0 -r -s "${{ inputs.parts_size }}m" "../magnet/${SAFE_NAME}.zip" .
+          cd ..
 
-      - name: stop warp
-        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
+      - name: Stop WARP and qBittorrent
+        if: ${{ always() }}
         run: |
-          docker stop warp || true
+          docker stop qbittorrent 2>/dev/null || true
+          docker rm qbittorrent 2>/dev/null || true
+          docker stop warp 2>/dev/null || true
+          docker rm warp 2>/dev/null || true
 
-      - name: generate readme with download links
+      - name: Generate README with Download Links
         run: |
           rm -f README.md
-
-          echo "# 📥 magnet download links" > README.md
+          
+          echo "# 📥 Magnet Download Links" > README.md
           echo "generated on: $(date)" >> README.md
           echo "" >> README.md
-
+          
           # loop through all files in the magnet folder
           for file in magnet/*; do
             if [ -f "$file" ]; then
               filename=$(basename "$file")
-              # url encode spaces and special characters for the markdown link
+              # url encode spaces for the markdown link
               encoded_filename=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$filename")
+              # construct the raw link
               url="https://github.com/${{ github.repository }}/raw/magnet/magnet/$encoded_filename"
               echo "- [download $filename]($url)" >> README.md
             fi
           done
 
-      - name: commit
+      - name: Commit
         run: |
           git add README.md magnet
-          git commit -m "[bot] Add magnet download ${{ env.SAFE_BASE }}" || echo "nothing to commit"
-          git push
+          git commit -m "[bot] Add magnet download ${{ env.SAFE_NAME }}" || echo "nothing to commit"
+          git push || echo "nothing to push"
