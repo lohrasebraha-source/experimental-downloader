@@ -23,7 +23,7 @@ on:
       use_warp:
         description: '🛡️ Use WARP (sometimes helps | +40s)'
         required: true
-        default: false
+        default: true
         type: boolean
       parts_size:
         description: '🫙 Parts size (MB)'
