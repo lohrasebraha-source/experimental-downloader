@@ -131,8 +131,7 @@ jobs:
           # zip
           mkdir -p ../magnet
           ls -la
-          echo zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" "*"
-          zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" "*"
+          zip -0 -s "${{ inputs.parts_size }}m" "../magnet/${RESULT_NAME}.zip" *
 
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
