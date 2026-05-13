@@ -13,7 +13,7 @@ on:
         default: 'bash_command_result'
         type: string
       use_warp:
-        description: '🛡️ Use WARP (sometimes helps | +40s | sets `http_proxy`)'
+        description: '🛡️ Use WARP (sometimes helps | +40s)'
         required: true
         default: false
         type: boolean
