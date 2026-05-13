@@ -187,7 +187,7 @@ jobs:
               "${OUTPUT_OPTS[@]}" \
               "${{ inputs.youtube_url }}"
           
-          # ---- zip ----
+          # find name
           FILE=$(ls -1 | head -n 1)
           FILE_NO_EXTENSION="${FILE%.*}"
           echo "FILE=$FILE" >> $GITHUB_ENV
@@ -195,11 +195,9 @@ jobs:
           SAFE_NAME=$(echo "$FILE" | sed 's/^[[:space:]]*//' | tr ' ' '_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
           
-          # Create videos directory if not exists
+          # zip
           mkdir -p ../videos
-          zip -0 -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" "$FILE"
-          ls -la
-
+          zip -0 -s "${{ inputs.parts_size }}m" ../videos/\"${SAFE_NAME}.zip" "$FILE"
           
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
