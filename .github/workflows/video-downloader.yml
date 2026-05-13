@@ -3,8 +3,8 @@ name: Video Downloader
 on:
   workflow_dispatch:
     inputs:
-      youtube_url:
-        description: '🔗 YouTube video URL(s)'
+      url:
+        description: '🔗 Video video URL'
         required: true
         type: string
       quality:
@@ -176,7 +176,7 @@ jobs:
           cd tmpvideos
           
           echo "Running yt-dlp with command:"
-          echo "yt-dlp --remote-components ejs:github ${PROXY_ARGS[@]} ${UA_ARGS[@]} ${EXTRACTOR_ARGS[@]} $FORMAT_OPTS ${OUTPUT_OPTS[@]} \"${{ inputs.youtube_url }}\""
+          echo "yt-dlp --remote-components ejs:github ${PROXY_ARGS[@]} ${UA_ARGS[@]} ${EXTRACTOR_ARGS[@]} $FORMAT_OPTS ${OUTPUT_OPTS[@]} \"${{ inputs.url }}\""
           
           yt-dlp \
               --remote-components ejs:github \
@@ -185,7 +185,7 @@ jobs:
               "${EXTRACTOR_ARGS[@]}" \
               $FORMAT_OPTS \
               "${OUTPUT_OPTS[@]}" \
-              "${{ inputs.youtube_url }}"
+              "${{ inputs.url }}"
           
           # find name
           FILE=$(ls -1 | head -n 1)
