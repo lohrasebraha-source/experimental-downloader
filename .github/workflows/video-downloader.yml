@@ -132,47 +132,74 @@ jobs:
       - name: Download videos
         id: download
         run: |
-          # parse quality input
-          QUALITY="${{ inputs.quality }}"
+          set -euo pipefail
           
+          # ---- quality ----
+          QUALITY="${{ inputs.quality }}"
           if [ "$QUALITY" = "audio" ]; then
-            FORMAT_OPTS="-f bestaudio --extract-audio --audio-format mp3"
+              FORMAT_OPTS="-f ba -x --audio-format mp3"
           elif [ "$QUALITY" = "best" ]; then
-            FORMAT_OPTS="-f bestvideo+bestaudio/best --merge-output-format mp4"
+              FORMAT_OPTS="-f bv+ba/b"
           else
-            FORMAT_OPTS="-f bestvideo[height<=${QUALITY}]+bestaudio/best[height<=${QUALITY}] --merge-output-format mp4"
+              FORMAT_OPTS="-f bv*[height<=${QUALITY}]+ba/b[height<=${QUALITY}]"
           fi
-
-          PROXY_ARGS=""
+          
+          # ---- proxy ----
+          PROXY_ARGS=()
           if [ "${{ inputs.use_warp }}" = "true" ]; then
-            echo "Using WARP proxy..."
-            PROXY_ARGS="--proxy \"socks5://127.0.0.1:1080\""
+              echo "Using WARP proxy..."
+              PROXY_ARGS=("--proxy" "socks5://127.0.0.1:1080")
           fi
-
-          # parse output name
+          
+          # ---- user agent and headers ----
+          UA_ARGS=(
+              "--user-agent" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+              "--referer" "https://www.youtube.com/"
+              "--add-header" "Accept-Language: en-US,en;q=0.9"
+          )
+          
+          # ---- extractor args ----
+          EXTRACTOR_ARGS=(
+              "--extractor-args" "youtube:player_client=android"
+              "--throttled-rate" "100K"
+          )
+          
+          # ---- output ----
+          OUTPUT_OPTS=()
           OUTPUT_NAME="${{ inputs.output_name }}"
           if [ -n "$OUTPUT_NAME" ]; then
-            OUTPUT_OPTS="-o ${OUTPUT_NAME}.%(ext)s"
-          else
-            OUTPUT_OPTS=""
+              OUTPUT_OPTS=("-o" "${OUTPUT_NAME}.%(ext)s")
           fi
           
-          # download using yt-dlp
+          # ---- download ----
           mkdir -p tmpvideos
           cd tmpvideos
-          yt-dlp --remote-components ejs:github PROXY_ARGS $FORMAT_OPTS $OUTPUT_OPTS "${{ inputs.youtube_url }}"
-
-          # find name
+          
+          echo "Running yt-dlp with command:"
+          echo "yt-dlp --remote-components ejs:github ${PROXY_ARGS[@]} ${UA_ARGS[@]} ${EXTRACTOR_ARGS[@]} $FORMAT_OPTS ${OUTPUT_OPTS[@]} \"${{ inputs.youtube_url }}\""
+          
+          yt-dlp \
+              --remote-components ejs:github \
+              "${PROXY_ARGS[@]}" \
+              "${UA_ARGS[@]}" \
+              "${EXTRACTOR_ARGS[@]}" \
+              $FORMAT_OPTS \
+              "${OUTPUT_OPTS[@]}" \
+              "${{ inputs.youtube_url }}"
+          
+          # ---- zip ----
           FILE=$(ls -1 | head -n 1)
           FILE_NO_EXTENSION="${FILE%.*}"
           echo "FILE=$FILE" >> $GITHUB_ENV
           echo "FILE_NO_EXTENSION=$FILE_NO_EXTENSION" >> $GITHUB_ENV
           SAFE_NAME=$(echo "$FILE" | sed 's/^[[:space:]]*//' | tr ' ' '_')
           echo "SAFE_NAME=$SAFE_NAME" >> $GITHUB_ENV
-
-          # zip
-          zip -0 -s "${{ inputs.parts_size }}m" "../videos/\"${SAFE_NAME}.zip\"" "$FILE"
+          
+          # Create videos directory if not exists
+          mkdir -p ../videos
+          zip -0 -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" "$FILE"
           ls -la
+
           
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
