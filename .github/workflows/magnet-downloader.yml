@@ -112,7 +112,7 @@ jobs:
           RESULT_NAME="${{ inputs.result_name }}"
 
           # Optional SOCKS5 proxy via WARP
-          if [ ${{ inputs.use_warp }} ]; then
+          if [ ${{ inputs.use_warp }} == 'true' ]; then
             export http_proxy=socks5h://127.0.0.1:1080
           fi
 

@@ -98,7 +98,7 @@ jobs:
           mkdir -p tmpwget
           cd tmpwget
           
-          if [ ${{ inputs.use_warp }} ]; then
+          if [ ${{ inputs.use_warp }} == 'true' ]; then
             echo "Using WARP proxy..."
             export http_proxy=socks5h://warp:1080
           fi
