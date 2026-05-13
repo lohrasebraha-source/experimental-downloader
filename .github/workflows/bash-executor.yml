@@ -142,5 +142,5 @@ jobs:
       - name: Commit
         run: |
           git add README.md bash
-          git commit -m "[bot] Add bash download ${{ env.SAFE_NAME }}"
+          git commit -m "[bot] Add bash download ${{ inputs.output_name }}"
           git push
