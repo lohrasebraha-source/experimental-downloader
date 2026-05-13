@@ -1,4 +1,18 @@
-## Experimental Downloader 
+# Experimental Downloader 
+**A collection of GitHub Actions workflows for downloading videos, websites, direct files, torrents, and custom Bash outputs directly inside your own fork.**
+
+## 🚀 Getting Started
+1. Fork this repository
+2. Open the Actions tab in your fork
+3. Select the workflow you want to use
+4. Fill in the required inputs
+5. Run the workflow
+6. Wait for completion
+7. Open the corresponding branch to access download links
+___
+
+## Available Workflows
+
 ### 🎥 Video (YouTube, X, etc.)
 1. Fork the main branch
 2. Run the "Video Downloader" Workflow in the Actions tab (ensure link is filled)
@@ -6,7 +20,7 @@
 4. Switch to the `videos` branch
 5. View download links
 
-### 🌐 Website (Famitsu, X, etc.)
+### 🌐 Website (ファミ通, X, etc.)
 1. Fork the main branch
 2. Run the "Website Downloader" Workflow in the Actions tab (ensure link is filled and name is unique)
 3. Await completion
