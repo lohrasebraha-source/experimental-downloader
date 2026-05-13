@@ -112,7 +112,7 @@ jobs:
 
           # zip
           mkdir -p ../bash
-          zip -0 -s "${{ inputs.parts_size }}m" ../bash/"${{ inputs.output_name }}.zip" .
+          zip -r -0 -s "${{ inputs.parts_size }}m" ../bash/"${{ inputs.output_name }}.zip" .
 
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
