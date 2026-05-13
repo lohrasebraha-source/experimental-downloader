@@ -146,7 +146,7 @@ jobs:
           
           # ---- proxy ----
           PROXY_ARGS=()
-          if [ "${{ inputs.use_warp }}" = "true" ]; then
+          if [ ${{ inputs.use_warp }} ]; then
               echo "Using WARP proxy..."
               PROXY_ARGS=("--proxy" "socks5://127.0.0.1:1080")
           fi

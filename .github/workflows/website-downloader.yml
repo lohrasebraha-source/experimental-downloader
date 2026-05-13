@@ -109,7 +109,7 @@ jobs:
           chmod 777 archive_data
 
           PROXY_ARGS=""
-          if [ "${{ inputs.use_warp }}" = "true" ]; then
+          if [ ${{ inputs.use_warp }} ]; then
             echo "Using WARP proxy..."
             PROXY_ARGS="--network warp-net -e HTTP_PROXY=socks5h://warp:1080 -e HTTPS_PROXY=socks5h://warp:1080"
           fi

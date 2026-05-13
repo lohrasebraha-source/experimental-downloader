@@ -54,7 +54,7 @@ jobs:
           fi
 
       - name: Setup WARP
-        if: ${{ inputs.use_warp == 'true' || inputs.use_warp == true }}
+        if: ${{ inputs.use_warp }}
         run: |
           # clean up any existing container/network (useful for self-hosted runners)
           docker rm -f warp 2>/dev/null || true
@@ -103,7 +103,7 @@ jobs:
           mkdir -p tmpbash
           cd tmpbash
           
-          if [ "${{ inputs.use_warp }}" = "true" ]; then
+          if [ ${{ inputs.use_warp }} ]; then
             echo "Using WARP proxy..."
             export http_proxy=socks5h://warp:1080
           fi
