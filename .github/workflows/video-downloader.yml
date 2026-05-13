@@ -176,16 +176,9 @@ jobs:
           cd tmpvideos
           
           echo "Running yt-dlp with command:"
-          echo "yt-dlp --remote-components ejs:github ${PROXY_ARGS[@]} ${UA_ARGS[@]} ${EXTRACTOR_ARGS[@]} $FORMAT_OPTS ${OUTPUT_OPTS[@]} \"${{ inputs.url }}\""
+          echo yt-dlp --remote-components ejs:github "${PROXY_ARGS[@]}" "${UA_ARGS[@]}" "${EXTRACTOR_ARGS[@]}" $FORMAT_OPTS "${OUTPUT_OPTS[@]}" "${{ inputs.url }}"
           
-          yt-dlp \
-              --remote-components ejs:github \
-              "${PROXY_ARGS[@]}" \
-              "${UA_ARGS[@]}" \
-              "${EXTRACTOR_ARGS[@]}" \
-              $FORMAT_OPTS \
-              "${OUTPUT_OPTS[@]}" \
-              "${{ inputs.url }}"
+          yt-dlp --remote-components ejs:github "${PROXY_ARGS[@]}" "${UA_ARGS[@]}" "${EXTRACTOR_ARGS[@]}" $FORMAT_OPTS "${OUTPUT_OPTS[@]}" "${{ inputs.url }}"
           
           # find name
           FILE=$(ls -1 | head -n 1)
