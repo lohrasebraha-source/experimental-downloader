@@ -191,7 +191,7 @@ jobs:
           # zip
           mkdir -p ../videos
           ls
-          echo zip -0 -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}.zip" .
+          echo zip -0 -s "${{ inputs.parts_size }}m" ../videos/"${SAFE_NAME}".zip .
           zip -0 -s "${{ inputs.parts_size }}m" ../videos/"${SAFE_NAME}".zip .
           
       - name: Stop WARP
