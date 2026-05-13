@@ -27,6 +27,13 @@
 4. Switch to `magnet` branch
 5. View download links
 
+### 🐧 Bash Executor (downloads . directory)
+1. Fork the main branch
+2. Run the "Bash Executor" workflow in the Actions tab (ensure Bash command field is filled and output name is unique)
+3. Await completion
+4. Switch to `bash` branch
+5. View download links
+
 #### 📽️ How-to's Screen-record 
 This video showcases a simple workflow: https://abrehamrahi.ir/o/public/fAYx7OTW/
 
