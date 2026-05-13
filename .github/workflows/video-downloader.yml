@@ -190,9 +190,8 @@ jobs:
           
           # zip
           mkdir -p ../videos
-          ls
-          echo zip -0 -s "${{ inputs.parts_size }}m" ../videos/"${SAFE_NAME}".zip .
-          zip -0 -s "${{ inputs.parts_size }}m" "../videos/${SAFE_NAME}".zip *
+          cd ../videos
+          zip -0 -s "${{ inputs.parts_size }}m" "${SAFE_NAME}".zip ../tmpvideos
           
       - name: Stop WARP
         if: ${{ inputs.use_warp }}
